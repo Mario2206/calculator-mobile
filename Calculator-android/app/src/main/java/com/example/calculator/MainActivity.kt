@@ -12,17 +12,18 @@ class MainActivity : AppCompatActivity() {
 
     private var input : Float? = null
     private var previousInput: Float? = null
-    private var result: Float? = null
     private var symbol: String? = null
     private var isDecimal : Boolean = false
+    private var isFirstDecimal : Boolean = false;
+    private var errorMessage : String = ""
 
     companion object {
         private val INPUT_BUTTONS = listOf(
-            listOf("","","C", "CE"),
-            listOf("1", "2", "3", "/"),
-            listOf("4", "5", "6", "*"),
-            listOf("7", "8", "9", "-"),
-            listOf("0", ".", "=", "+")
+                listOf("","","C", "CE"),
+                listOf("1", "2", "3", "/"),
+                listOf("4", "5", "6", "*"),
+                listOf("7", "8", "9", "-"),
+                listOf("0", ".", "=", "+")
         )
     }
 
@@ -39,17 +40,17 @@ class MainActivity : AppCompatActivity() {
     private fun addCells(linearLayout: LinearLayout, position: Int) {
         for (x in INPUT_BUTTONS[position].indices) {
             linearLayout.addView(
-                TextView(
-                    ContextThemeWrapper(this, R.style.CalculatorInputButton)
-                ).apply {
-                    text = INPUT_BUTTONS[position][x]
-                    setOnClickListener { onCellClicked(this.text.toString()) }
-                },
-                LinearLayout.LayoutParams(
-                    0,
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    1f
-                )
+                    TextView(
+                            ContextThemeWrapper(this, R.style.CalculatorInputButton)
+                    ).apply {
+                        text = INPUT_BUTTONS[position][x]
+                        setOnClickListener { onCellClicked(this.text.toString()) }
+                    },
+                    LinearLayout.LayoutParams(
+                            0,
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            1f
+                    )
             )
         }
     }
@@ -58,7 +59,7 @@ class MainActivity : AppCompatActivity() {
     private fun onCellClicked(value: String) {
         when {
             value.isNum() -> {
-                updateInput(value.toFloat())
+                updateInput(value)
             }
             value == "CE" -> onCleanAll()
             value == "C" -> onClean()
@@ -68,10 +69,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun onSymbolClicked(symbol: String) {
-        this.symbol = symbol
+    private fun onSymbolClicked(symbolValue: String) {
+        if(input == null) return
+        symbol = symbolValue
         previousInput = input
         input = null
+        isDecimal = false
+        updateDisplayContainerWithCalcul();
 
     }
 
@@ -80,65 +84,109 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        result = when (symbol) {
+        input = when (symbol) {
             "+" -> input!! + previousInput!!
             "-" -> input!! - previousInput!!
             "*" -> input!! * previousInput!!
-            "/" -> previousInput!! / input!!
+            "/" -> onDivision()
             else -> null
         }
 
-        updateDisplayContainer(if(result !== null) result.toString() else "ERROR")
-
-        input = result
         previousInput = null
         symbol = null
+        isDecimal = false
+        updateDisplayContainerWithCalcul();
+    }
+
+    private fun onDivision() : Float {
+        if(input == 0F) {
+            errorMessage = "La division par 0 n'est pas possible"
+            return 0F;
+        }
+
+        return previousInput!! / input!!;
     }
 
     private fun onPointClicked() {
-        val integer = input?.toInt()
-        updateDisplayContainer(integer.toString() + ".")
+        if(isDecimal) return
         isDecimal = true
+        isFirstDecimal = true
+        updateDisplayContainerWithCalcul();
     }
 
     private fun onClean() {
-        isDecimal = false
 
-        if(input !== null) {
-            input = null
-            updateDisplayContainer("")
-        } else if(symbol !== null) {
-            symbol = null
+        if(input !== null)
+        {
+            val removeScope : Int =  if(input!! % 1 == 0F ) 3 else 1;
+            val newValue = input.toString().substring(0, input.toString().length - removeScope)
+            input =if(newValue == "") null else  newValue.toFloat()
+            updateDisplayContainerWithCalcul();
         }
+        else
+        {
+            symbol = null
+            input = previousInput
+            previousInput = null
+        }
+
+        updateDisplayContainerWithCalcul()
     }
 
     private fun onCleanAll() {
         input = null
         previousInput = null
-        updateDisplayContainer("")
+        isDecimal = false
+        isFirstDecimal = false
+        updateDisplayContainerWithCalcul();
 
     }
 
-    private fun updateDisplayContainer(value: Any) {
-        findViewById<TextView>(R.id.calculator_display_container).text = value.toString()
+    private fun formatNumberStr(number : Float?): String {
+        val numberValue : Float = number ?: 0F;
+        return if(number == null) "" else if (numberValue % 1 == 0F) number?.toInt().toString() else number.toString();
     }
 
-    private fun updateInput(value: Float) {
-        if(isDecimal) {
-            createDecimal(value)
-            updateDisplayContainer(input.toString())
-            return
+    private fun updateDisplayContainer(value: String) {
+        findViewById<TextView>(R.id.calculator_display_container).text = value
+    }
+
+    private fun updateDisplayContainerWithCalcul() {
+        if(errorMessage != "") {
+            updateDisplayContainer(errorMessage)
+            errorMessage = ""
+            return;
         }
-        input = value
-        isDecimal = false
-        updateDisplayContainer(value)
+        val prevStr = formatNumberStr(previousInput)
+        val symbolStr = if(symbol != null) symbol else "";
+        val inputStr = formatNumberStr(input)
+        val pointStr = if(isFirstDecimal) "." else "";
+        updateDisplayContainer("$prevStr $symbolStr $inputStr$pointStr")
+    }
+
+    private fun updateInput(value: String) {
+        if(isDecimal) {
+            createDecimalInput(value.toInt())
+        }
+        else {
+            createIntegerInput(value.toInt())
+        }
+        updateDisplayContainerWithCalcul()
     }
 
 
+    private fun createIntegerInput(value: Int) {
+        val inputValue = input?.toInt() ?: 0;
+        input = (inputValue.toString() + value.toString()).toFloat()
+    }
 
-    private fun createDecimal(value: Float) {
-        input = input!! + (value / 10)
-        isDecimal = false
+    private fun createDecimalInput(value: Int) {
+        if(isFirstDecimal) {
+            isFirstDecimal = false;
+            input = (input?.toInt().toString() + "." + value.toString()).toFloat()
+            return;
+        }
+        input = (input.toString()  + value.toString()).toFloat()
     }
 
 }
