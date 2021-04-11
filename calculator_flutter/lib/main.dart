@@ -1,48 +1,46 @@
-
 import 'package:calculator_flutter/res/colors.dart';
 import 'package:flutter/material.dart';
 
 void main() {
- runApp(MyApp());
+  runApp(MyApp());
 }
 
 class MyApp extends StatelessWidget {
- @override
- Widget build(BuildContext context) {
-   return MaterialApp(
-     title: 'Calculatrice',
-     theme: ThemeData(
-       primaryColor: AppColors.inputContainerBackground,
-       accentColor: AppColors.displayContainerBackground,
-       primaryColorBrightness: Brightness.light,
-     ),
-     home: Calculator(),
-   );
- }
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Calculatrice',
+      theme: ThemeData(
+        primaryColor: AppColors.inputContainerBackground,
+        accentColor: AppColors.displayContainerBackground,
+        primaryColorBrightness: Brightness.light,
+      ),
+      home: Calculator(),
+    );
+  }
 }
 
 class Calculator extends StatefulWidget {
- @override
- _CalculatorState createState() => _CalculatorState();
+  @override
+  _CalculatorState createState() => _CalculatorState();
 }
 
 class _CalculatorState extends State<Calculator> {
-
   static const List<List<String>> grid = <List<String>>[
-  <String>["", "", "C", "CE"],
-  <String>["7", "8", "9", "-"],
-  <String>["4", "5", "6", "*"],
-  <String>["1", "2", "3", "/"],
-  <String>["0", ".", "=", "+"],
+    <String>["", "", "C", "CE"],
+    <String>["7", "8", "9", "-"],
+    <String>["4", "5", "6", "*"],
+    <String>["1", "2", "3", "/"],
+    <String>["0", ".", "=", "+"],
   ];
 
   double? input;
   double? previousInput;
   String? symbol;
+  bool isDecimal = false;
+  bool isFirstDecimal = false;
 
   void onItemClicked(String value) {
-  print('On Click $value');
-
     switch (value) {
       case '0':
       case '1':
@@ -62,13 +60,17 @@ class _CalculatorState extends State<Calculator> {
       case '*':
         onNewSymbol(value);
         break;
+      case '.':
+        isDecimal = true;
+        isFirstDecimal = true;
+        break;
       case '=':
         onEquals();
         break;
       case 'CE':
         clearAll();
         break;
-      case 'C' :
+      case 'C':
         clear();
     }
 
@@ -77,8 +79,23 @@ class _CalculatorState extends State<Calculator> {
   }
 
   void onNewDigit(String digit) {
+    double? value = 0;
+
+    if (input != null) value = input;
+
+    if (isDecimal) {
+      if (isFirstDecimal) {
+        isFirstDecimal = false;
+        value =
+            double.parse(value!.toInt().toString() + "." + digit.toString());
+      } else {
+        value = double.parse(value.toString() + digit.toString());
+      }
+    } else {
+      value = value! * 10 + double.parse(digit);
+    }
     setState(() {
-      input = double.parse(digit);
+      input = value;
     });
   }
 
@@ -87,32 +104,39 @@ class _CalculatorState extends State<Calculator> {
       symbol = digit;
       previousInput = input;
       input = null;
+      isDecimal = false;
+      isFirstDecimal = false;
     });
   }
 
   void onEquals() {
     double result = 0;
-    switch(symbol) {
-      case "+" :
+
+    if (input == null || previousInput == null) {
+      return;
+    }
+
+    switch (symbol) {
+      case "+":
         result = this.input! + this.previousInput!;
         break;
-      case "-" :
+      case "-":
         result = this.previousInput! - this.input!;
         break;
-      case "*" :
+      case "*":
         result = this.previousInput! * this.input!;
         break;
-      case "/" :
+      case "/":
         result = this.previousInput! / this.input!;
         break;
     }
-
-   
 
     setState(() {
       input = result;
       previousInput = null;
       symbol = "";
+      isDecimal = false;
+      isFirstDecimal = false;
     });
   }
 
@@ -121,91 +145,111 @@ class _CalculatorState extends State<Calculator> {
       input = null;
       previousInput = null;
       symbol = null;
+      isDecimal = false;
     });
   }
 
   void clear() {
-    if(input != null) {
-      String newValue = input.toString().substring(0, input.toString().length - 1);
-      print(newValue);
+    if (input != null) {
+      int removeScope = input! % 1 == 0 ? 3 : 1;
+
+      String newValue =
+          input.toString().substring(0, input.toString().length - removeScope);
+      double? newInput = newValue == "" ? null : double.parse(newValue);
+
+      setState(() {
+        input = newInput;
+      });
     } else {
       setState(() {
         symbol = null;
         input = previousInput;
       });
     }
-
-
-
   }
 
- @override
- Widget build(BuildContext context) {
-   return Scaffold(
-   body: DefaultTextStyle(
-     style: TextStyle(color: AppColors.white, fontSize: 22.0),
-     child: Column(
-       children: [
-         Flexible(
-           flex: 2,
-           child: Container(
-             color: AppColors.displayContainerBackground,
-             alignment: AlignmentDirectional.centerEnd,
-             padding: const EdgeInsets.all(22.0),
-             child: Text( input != null && (input! % 1 == 0) ? input!.toInt().toString(): (input == null ? "0" : input.toString())),
-           ),
-         ),
-         Flexible(
-            flex: 8,
+  String displayNumber(double? number) {
+    return number != null && (number % 1 == 0)
+        ? number.toInt().toString()
+        : (number == null ? "" : number.toString());
+  }
 
-            // Column = vertical
-            child: Column(
-              // Pour chaque nouvelle ligne, on itère sur chaque cellule
-              children: grid.map((List<String> line) {
-                return Expanded(
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: DefaultTextStyle(
+        style: TextStyle(color: AppColors.white, fontSize: 22.0),
+        child: Column(
+          children: [
+            Flexible(
+              flex: 2,
+              child: Container(
+                  color: AppColors.displayContainerBackground,
+                  alignment: AlignmentDirectional.centerEnd,
+                  padding: const EdgeInsets.all(22.0),
                   child: Row(
-                      children: line
-                          .map(
-                            (String cell) => Expanded(
-                              child: InputButton(
-                                label: cell,
-                                onTap: onItemClicked,
-                              ),
-                            ),
-                          )
-                          .toList(growable: false)),
-                );
-              }).toList(growable: false),
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Text(previousInput != null
+                          ? displayNumber(previousInput) + " "
+                          : ""),
+                      Text(symbol != null ? symbol.toString() + " " : ""),
+                      Text(displayNumber(input)),
+                      Text(isFirstDecimal ? "." : "")
+                    ],
+                  )),
             ),
-          )
-       ],
-     ),
-   ),
- );
- }
+            Flexible(
+              flex: 8,
+
+              // Column = vertical
+              child: Column(
+                // Pour chaque nouvelle ligne, on itère sur chaque cellule
+                children: grid.map((List<String> line) {
+                  return Expanded(
+                    child: Row(
+                        children: line
+                            .map(
+                              (String cell) => Expanded(
+                                child: InputButton(
+                                  label: cell,
+                                  onTap: onItemClicked,
+                                ),
+                              ),
+                            )
+                            .toList(growable: false)),
+                  );
+                }).toList(growable: false),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class InputButton extends StatelessWidget {
- final String label;
- final ValueChanged<String>? onTap;
+  final String label;
+  final ValueChanged<String>? onTap;
 
- InputButton({required this.label, required this.onTap});
+  InputButton({required this.label, required this.onTap});
 
- @override
- Widget build(BuildContext context) {
-   return InkWell(
-     onTap: () => onTap?.call(label),
-     child: Ink(
-       height: double.infinity,
-       decoration: BoxDecoration(
-           border: Border.all(color: AppColors.white, width: 0.5),
-           color: AppColors.inputContainerBackground),
-       child: Center(
-         child: Text(
-           label,
-         ),
-       ),
-     ),
-   );
- }
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => onTap?.call(label),
+      child: Ink(
+        height: double.infinity,
+        decoration: BoxDecoration(
+            border: Border.all(color: AppColors.white, width: 0.5),
+            color: AppColors.inputContainerBackground),
+        child: Center(
+          child: Text(
+            label,
+          ),
+        ),
+      ),
+    );
+  }
 }
